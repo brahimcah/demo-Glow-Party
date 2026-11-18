@@ -23,26 +23,13 @@ function App() {
   const t = copy[lang];
 
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
-  useEffect(() => {
-    if (!('IntersectionObserver' in window)) return;
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('arrived');
-          observer.unobserve(entry.target);
-        }
-      });
-    });
-    document.querySelectorAll('main > section:not(.hero)').forEach(section => observer.observe(section));
-    return () => observer.disconnect();
-  }, []);
-
   function select(value: Choice) {
     setChoice(value);
     if (value !== 'undecided') setParty(value);
   }
 
   return <div className="site" data-party={party}>
+    <div className="scroll-progress" aria-hidden="true" />
     <a className="skip" href="#contingut">{t.skip}</a>
     <header className="header" id="top">
       <div className="wrap header-row">
@@ -69,8 +56,10 @@ function App() {
             </div>
             <div className="actions"><a className="button primary" href="#festes">{t.explore} <span aria-hidden="true">↘</span></a><a className="button secondary" href="#consulta">{t.check}</a></div>
           </div>
-          <div className="hero-art">
-            {parties.map(value => <div key={value} className={party === value ? 'visible' : ''}><Artwork party={value} /></div>)}
+          <div className="hero-stage">
+            <div className="hero-art">
+              {parties.map(value => <div key={value} className={party === value ? 'visible' : ''}><Artwork party={value} /></div>)}
+            </div>
           </div>
         </div>
       </section>
@@ -93,9 +82,8 @@ function App() {
         </div>
       </section>
       <section className="process section" id="com-funciona"><div className="wrap">
-        <h2>{t.process}</h2>
+        <div className="process-intro"><h2>{t.process}</h2><p>{t.confirmation}</p></div>
         <ol className="steps">{t.steps.map((step, index) => <li key={step}><span aria-hidden="true">0{index + 1}</span>{step}</li>)}</ol>
-        <p>{t.confirmation}</p>
       </div></section>
       <Gallery t={t} lang={lang} />
       <Inquiry t={t} lang={lang} choice={choice} choose={select} />
