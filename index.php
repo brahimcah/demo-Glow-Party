@@ -1,50 +1,55 @@
 <?php
 /**
- * Beauty Party & Glow Party — HestiaCP / Apache / PHP Entrypoint & Static Runner
+ * Beauty Party & Glow Party — HestiaCP / Apache / PHP Entrypoint & Node Diagnostics
  * 
  * Funcionalidades:
- * 1. Sirve la versión compilada de producción (dist/index.html) sin necesidad de Node.js en el servidor.
- * 2. Soporta enrutamiento y entrega correcta de archivos con tipos MIME oficiales.
- * 3. Diagnóstico del entorno mediante el parámetro ?node_info
+ * 1. Sirve la versión compilada de producción (HTML/JS/CSS) sin necesidad de Node.js activo en el servidor.
+ * 2. Soporta enrutamiento SPA y entrega correcta de archivos con tipos MIME oficiales.
+ * 3. Diagnóstico completo del servidor y Node.js mediante el parámetro ?node_info o ?run_node
  */
 
 $baseDir = __DIR__;
 $distDir = $baseDir . '/dist';
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 
-// Diagnóstico si se solicita ?node_info
-if (isset($_GET['node_info'])) {
+// Diagnóstico si se solicita ?node_info o ?run_node
+if (isset($_GET['node_info']) || isset($_GET['run_node'])) {
     header('Content-Type: application/json; charset=UTF-8');
     $nodeVersion = @shell_exec('node -v 2>&1');
     $npmVersion = @shell_exec('npm -v 2>&1');
+    $pm2Version = @shell_exec('pm2 -v 2>&1');
+    
     echo json_encode([
         'status' => 'online',
         'app' => 'Beauty Party & Glow Party Demo',
         'php_version' => PHP_VERSION,
         'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
         'node_installed' => !empty($nodeVersion) && strpos(trim((string)$nodeVersion), 'v') === 0,
-        'node_version' => trim((string)$nodeVersion),
-        'npm_version' => trim((string)$npmVersion),
+        'node_version' => trim((string)$nodeVersion) ?: 'No disponible o restringido por open_basedir/disable_functions',
+        'npm_version' => trim((string)$npmVersion) ?: 'No disponible',
+        'pm2_version' => trim((string)$pm2Version) ?: 'No disponible',
+        'root_index_html' => file_exists($baseDir . '/index.html'),
+        'root_assets_folder' => is_dir($baseDir . '/assets'),
         'dist_exists' => is_dir($distDir),
         'dist_index_html' => file_exists($distDir . '/index.html'),
-        'root_index_html' => file_exists($baseDir . '/index.html'),
+        'note' => 'Esta aplicación es una SPA compilada (React + TypeScript). En producción se sirve como HTML/CSS/JS estático a través de Nginx/Apache para máxima velocidad y estabilidad. No requiere demonio Node.js activo.',
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
-// 1. Manejo de archivos estáticos (JS, CSS, imágenes, fuentes)
+// 1. Manejo de archivos estáticos (JS, CSS, imágenes, fuentes) si la petición pasa por PHP
 $assetPath = null;
 if (strpos($uri, '/assets/') === 0) {
-    if (file_exists($distDir . $uri)) {
-        $assetPath = $distDir . $uri;
-    } elseif (file_exists($baseDir . $uri)) {
+    if (file_exists($baseDir . $uri)) {
         $assetPath = $baseDir . $uri;
+    } elseif (file_exists($distDir . $uri)) {
+        $assetPath = $distDir . $uri;
     }
 } elseif (preg_match('/\.(js|mjs|css|jpg|jpeg|png|svg|webp|woff|woff2|ttf|json|ico)$/i', $uri)) {
-    if (file_exists($distDir . $uri)) {
-        $assetPath = $distDir . $uri;
-    } elseif (file_exists($baseDir . $uri)) {
+    if (file_exists($baseDir . $uri)) {
         $assetPath = $baseDir . $uri;
+    } elseif (file_exists($distDir . $uri)) {
+        $assetPath = $distDir . $uri;
     }
 }
 
@@ -78,12 +83,16 @@ if ($assetPath && is_file($assetPath)) {
     }
 }
 
-// 2. Servir el index.html de producción (prioridad a dist/index.html)
+// 2. Servir el index.html de producción
 $htmlPath = null;
 if (file_exists($distDir . '/index.html')) {
     $htmlPath = $distDir . '/index.html';
-} elseif (file_exists($baseDir . '/dist/index.html')) {
-    $htmlPath = $baseDir . '/dist/index.html';
+} elseif (file_exists($baseDir . '/index.html')) {
+    $htmlContent = file_get_contents($baseDir . '/index.html');
+    // Si contiene la referencia a /src/main.tsx es el fuente sin compilar
+    if (strpos($htmlContent, '/src/main.tsx') === false) {
+        $htmlPath = $baseDir . '/index.html';
+    }
 }
 
 if ($htmlPath && is_file($htmlPath)) {
@@ -93,7 +102,7 @@ if ($htmlPath && is_file($htmlPath)) {
     exit;
 }
 
-// 3. Mensaje amigable si dist/ aún no ha sido subido
+// 3. Pantalla de información si falta compilar o extraer
 http_response_code(500);
 header('Content-Type: text/html; charset=UTF-8');
 ?>
@@ -115,9 +124,9 @@ header('Content-Type: text/html; charset=UTF-8');
 <body>
     <div class="card">
         <span class="badge">HestiaCP Glow Party Engine</span>
-        <h1>Falta la carpeta compilada <code>dist/</code></h1>
-        <p>Para que la aplicación funcione en HestiaCP sin necesidad de configurar un daemon Node.js, sube la carpeta <code>dist/</code> junto a este <code>index.php</code>.</p>
-        <p>O simplemente extrae el archivo <code>glow-party-hestia-deploy.zip</code> en tu <code>public_html/</code>.</p>
+        <h1>Faltan los archivos de producción</h1>
+        <p>Asegúrate de extraer el archivo <code>glow-party-hestia-deploy.zip</code> directamente en la carpeta <code>public_html/</code> de tu dominio.</p>
+        <p>Debe quedar <code>index.html</code> y la carpeta <code>assets/</code> directamente en la raíz de <code>public_html/</code>.</p>
     </div>
 </body>
 </html>

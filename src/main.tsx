@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Artwork } from './Artwork';
+import { Balloons } from './Balloons';
 import { Gallery } from './Gallery';
 import { Inquiry } from './Inquiry';
 import { config } from './config';
@@ -29,6 +30,7 @@ function App() {
   }
 
   return <div className="site" data-party={party}>
+    <Balloons />
     <div className="scroll-progress" aria-hidden="true" />
     <a className="skip" href="#contingut">{t.skip}</a>
     <header className="header" id="top">
