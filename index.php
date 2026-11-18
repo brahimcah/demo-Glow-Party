@@ -3,11 +3,10 @@
  * Beauty Party & Glow Party — HestiaCP / Apache / PHP Entrypoint & Node.js Runner
  * 
  * Funciones:
- * 1. Ejecuta Node.js en segundo plano (node server.js) si está disponible en el servidor.
- * 2. Si Node está activo en el puerto 3000, actúa como Proxy inverso hacia Node.
- * 3. Si Node no está disponible o no tiene permisos, sirve la versión compilada estática
- *    automáticamente a máxima velocidad, sin fallos ni pantallas en blanco.
- * 4. Panel de control accesible en ?node=1 o ?admin=1
+ * 1. Auto-descompresor: Si se sube el archivo ZIP junto a este index.php, lo extrae automáticamente.
+ * 2. Si Node.js está activo en el puerto 3000, actúa como Proxy Inverso hacia Node.
+ * 3. Si Node.js no está activo, sirve la versión compilada estática a máxima velocidad.
+ * 4. Ejecutor de Node.js integrado y panel de control en ?node=1 o en run-node.php.
  */
 
 ini_set('display_errors', '0');
@@ -18,7 +17,26 @@ $distDir = $baseDir . '/dist';
 $nodePort = 3000;
 $nodeHost = '127.0.0.1';
 
-// Función para verificar si el servidor Node está respondiendo en el puerto
+// Auto-extracción de seguridad si existe un zip en la carpeta y no están los assets
+if (!is_dir($baseDir . '/assets') && !file_exists($distDir . '/index.html')) {
+    if (class_exists('ZipArchive')) {
+        $zipCandidates = array_merge(
+            glob($baseDir . '/public_html.zip') ?: [],
+            glob($baseDir . '/glow-party-hestia-deploy.zip') ?: [],
+            glob($baseDir . '/*.zip') ?: []
+        );
+        foreach ($zipCandidates as $zipFile) {
+            $zip = new ZipArchive();
+            if ($zip->open($zipFile) === TRUE) {
+                $zip->extractTo($baseDir);
+                $zip->close();
+                break;
+            }
+        }
+    }
+}
+
+// Función para verificar si el servidor Node está respondiendo
 function isNodeRunning($host, $port) {
     $fp = @fsockopen($host, $port, $errno, $errstr, 0.4);
     if ($fp) {
@@ -28,12 +46,43 @@ function isNodeRunning($host, $port) {
     return false;
 }
 
-// Función para intentar arrancar Node.js en segundo plano
+// Función para encontrar el binario de Node en el servidor
+function findNodeBinary() {
+    $candidates = [
+        trim((string)@shell_exec('which node 2>/dev/null')),
+        '/usr/bin/node',
+        '/usr/local/bin/node',
+        '/bin/node',
+        '/snap/bin/node',
+    ];
+    $user = get_current_user();
+    $nvmDir = "/home/{$user}/.nvm/versions/node";
+    if (is_dir($nvmDir)) {
+        $versions = @scandir($nvmDir, SCANDIR_SORT_DESCENDING);
+        if ($versions) {
+            foreach ($versions as $v) {
+                if ($v !== '.' && $v !== '..' && is_file("{$nvmDir}/{$v}/bin/node")) {
+                    $candidates[] = "{$nvmDir}/{$v}/bin/node";
+                    break;
+                }
+            }
+        }
+    }
+    foreach ($candidates as $cand) {
+        if (!empty($cand) && @is_executable($cand)) {
+            return $cand;
+        }
+    }
+    return null;
+}
+
+// Función para arrancar Node.js en segundo plano
 function startNodeServer($baseDir, $port) {
+    $nodeBin = findNodeBinary() ?: 'node';
     $serverScript = file_exists($baseDir . '/server.cjs') ? 'server.cjs' : 'server.js';
-    $cmd = 'PORT=' . intval($port) . ' node ' . escapeshellarg($baseDir . '/' . $serverScript) . ' > /dev/null 2>&1 &';
+    $cmd = "PORT=" . intval($port) . " " . escapeshellarg($nodeBin) . " " . escapeshellarg($baseDir . '/' . $serverScript) . " > " . escapeshellarg($baseDir . '/node_output.log') . " 2>&1 &";
     @shell_exec($cmd);
-    usleep(300000); // 300ms de espera
+    usleep(400000);
     return isNodeRunning('127.0.0.1', $port);
 }
 
@@ -43,6 +92,12 @@ if (isset($_GET['node']) || isset($_GET['admin']) || isset($_GET['node_info'])) 
         if ($_GET['action'] === 'start') {
             startNodeServer($baseDir, $nodePort);
             header('Location: ?node=1&started=1');
+            exit;
+        }
+        if ($_GET['action'] === 'stop') {
+            $serverScript = file_exists($baseDir . '/server.cjs') ? 'server.cjs' : 'server.js';
+            @shell_exec("pkill -f " . escapeshellarg($serverScript));
+            header('Location: ?node=1&stopped=1');
             exit;
         }
         if ($_GET['action'] === 'build') {
@@ -58,7 +113,7 @@ if (isset($_GET['node']) || isset($_GET['admin']) || isset($_GET['node_info'])) 
 
     $nodeRunning = isNodeRunning($nodeHost, $nodePort);
     $nodeVer = trim((string)@shell_exec('node -v 2>&1'));
-    $npmVer = trim((string)@shell_exec('npm -v 2>&1'));
+    $nodeBin = findNodeBinary();
 
     if (isset($_GET['node_info'])) {
         header('Content-Type: application/json; charset=UTF-8');
@@ -67,8 +122,8 @@ if (isset($_GET['node']) || isset($_GET['admin']) || isset($_GET['node_info'])) 
             'app' => 'Beauty Party & Glow Party Demo',
             'php_version' => PHP_VERSION,
             'node_running_on_port_' . $nodePort => $nodeRunning,
+            'node_binary' => $nodeBin ?: 'No detectado',
             'node_version' => $nodeVer ?: 'No disponible o shell_exec desactivado',
-            'npm_version' => $npmVer ?: 'No disponible',
             'has_static_index' => file_exists($baseDir . '/index.html') || file_exists($distDir . '/index.html'),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -90,10 +145,11 @@ if (isset($_GET['node']) || isset($_GET['admin']) || isset($_GET['node_info'])) 
             .status-badge { display: inline-block; padding: 6px 14px; border-radius: 99px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
             .status-ok { background: #10b981; color: #fff; }
             .status-idle { background: #8b5cf6; color: #fff; }
-            .info-box { background: #0b0714; border: 1px solid #2d1f47; border-radius: 12px; padding: 16px; margin: 20px 0; font-family: monospace; font-size: 13px; color: #38bdf8; }
+            .info-box { background: #0b0714; border: 1px solid #2d1f47; border-radius: 12px; padding: 16px; margin: 20px 0; font-family: monospace; font-size: 13px; color: #38bdf8; line-height: 1.6; }
             .btn { display: inline-flex; align-items: center; justify-content: center; background: #ec4899; color: white; padding: 12px 22px; border-radius: 99px; text-decoration: none; font-weight: bold; margin-right: 10px; margin-top: 8px; transition: transform 0.15s; }
             .btn:hover { transform: scale(1.04); }
             .btn-secondary { background: #374151; color: #f3f4f6; }
+            .btn-danger { background: #ef4444; color: #fff; }
         </style>
     </head>
     <body>
@@ -107,17 +163,19 @@ if (isset($_GET['node']) || isset($_GET['admin']) || isset($_GET['node_info'])) 
 
             <div class="info-box">
                 PHP: <?= PHP_VERSION ?><br>
-                Node: <?= htmlspecialchars($nodeVer ?: 'No detectado en PATH') ?><br>
-                NPM: <?= htmlspecialchars($npmVer ?: 'No detectado') ?><br>
-                Servidor Node (3000): <?= $nodeRunning ? 'ACTIVO' : 'DETENIDO' ?><br>
+                Node Binario: <?= htmlspecialchars($nodeBin ?: 'No detectado') ?><br>
+                Node Versión: <?= htmlspecialchars($nodeVer ?: 'No disponible') ?><br>
+                Servidor Node (puerto <?= $nodePort ?>): <?= $nodeRunning ? 'ACTIVO' : 'DETENIDO' ?><br>
                 Compilación estática: <?= (file_exists($distDir . '/index.html') || file_exists($baseDir . '/index.html')) ? 'LISTA' : 'PENDIENTE' ?>
             </div>
 
             <p>Este sistema cuenta con <strong>doble motor</strong>: si Node.js está activo, procesa las peticiones directamente. Si no, sirve la aplicación compilada con cero dependencias.</p>
 
             <a class="btn" href="./">👉 Ver la Web</a>
-            <?php if (!$nodeRunning && !empty($nodeVer) && strpos($nodeVer, 'v') === 0): ?>
+            <?php if (!$nodeRunning && $nodeBin): ?>
                 <a class="btn btn-secondary" href="?node=1&action=start">▶ Iniciar Servidor Node</a>
+            <?php elseif ($nodeRunning): ?>
+                <a class="btn btn-danger" href="?node=1&action=stop">⏹ Detener Node</a>
             <?php endif; ?>
         </div>
     </body>
@@ -135,15 +193,18 @@ if (isNodeRunning($nodeHost, $nodePort)) {
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HEADER, true);
-    
-    // Pasar cabeceras relevantes
+
     $reqHeaders = [];
-    foreach (getallheaders() as $key => $val) {
-        if (!in_array(strtolower($key), ['host', 'connection'])) {
-            $reqHeaders[] = "$key: $val";
+    if (function_exists('getallheaders')) {
+        foreach (getallheaders() as $key => $val) {
+            if (!in_array(strtolower($key), ['host', 'connection'])) {
+                $reqHeaders[] = "$key: $val";
+            }
         }
     }
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $reqHeaders);
+    if (!empty($reqHeaders)) {
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $reqHeaders);
+    }
 
     $response = curl_exec($ch);
     if (!curl_errno($ch)) {
@@ -255,7 +316,7 @@ if ($htmlPath) {
     exit;
 }
 
-// 4. Si falta compilar, mostrar mensaje guiado
+// 4. Si falta compilar o extraer
 http_response_code(500);
 header('Content-Type: text/html; charset=UTF-8');
 ?>
@@ -263,10 +324,10 @@ header('Content-Type: text/html; charset=UTF-8');
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Glow Party — Servidor</title>
+    <title>Glow Party — Servidor HestiaCP</title>
     <style>
         body { font-family: system-ui, sans-serif; background: #0b0714; color: #fff; padding: 30px; text-align: center; }
-        .card { max-width: 500px; margin: 60px auto; background: #171026; padding: 40px; border-radius: 20px; border: 1px solid #3b225c; }
+        .card { max-width: 520px; margin: 60px auto; background: #171026; padding: 40px; border-radius: 20px; border: 1px solid #3b225c; }
         h1 { color: #f472b6; }
         p { color: #cbd5e1; }
         a { color: #38bdf8; }
@@ -275,8 +336,8 @@ header('Content-Type: text/html; charset=UTF-8');
 <body>
     <div class="card">
         <h1>Faltan archivos compilados</h1>
-        <p>Por favor extrae el archivo <code>glow-party-hestia-deploy.zip</code> en tu carpeta <code>public_html/</code>.</p>
-        <p><a href="?node=1">Ir al panel de control técnico &rarr;</a></p>
+        <p>Por favor extrae el archivo <code>public_html.zip</code> en tu carpeta <code>public_html/</code>.</p>
+        <p><a href="?node=1">Ir al panel de control &rarr;</a></p>
     </div>
 </body>
 </html>
