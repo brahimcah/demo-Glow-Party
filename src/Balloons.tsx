@@ -1,218 +1,56 @@
-import { useEffect, useState } from 'react';
+import { useId, useState } from 'react';
+import type { CSSProperties } from 'react';
+import type { Party } from './config';
 
-interface BalloonItem {
-  id: number;
-  left: number;
-  size: number;
-  color: string;
-  shineColor: string;
-  stringColor: string;
-  duration: number;
-  delay: number;
-  swayDuration: number;
-  swayDist: number;
-  wobbleDir: number;
-}
-
-interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  color: string;
-  angle: number;
-  speed: number;
-}
-
-const PALETTE = [
-  { color: '#ff2a85', shine: '#ff90bf', string: 'rgba(255, 42, 133, 0.45)' }, // Neon Pink
-  { color: '#9d4edd', shine: '#e0aaff', string: 'rgba(157, 78, 221, 0.45)' }, // Glow Purple
-  { color: '#00f0ff', shine: '#a6fbff', string: 'rgba(0, 240, 255, 0.45)' }, // Neon Cyan
-  { color: '#ffbe0b', shine: '#fef08a', string: 'rgba(255, 190, 11, 0.45)' }, // Party Gold
-  { color: '#ff006e', shine: '#ff80b5', string: 'rgba(255, 0, 110, 0.45)' }, // Hot Magenta
-  { color: '#06d6a0', shine: '#a7f3d0', string: 'rgba(6, 214, 160, 0.45)' }, // Electric Mint
-  { color: '#fb5607', shine: '#fed7aa', string: 'rgba(251, 86, 7, 0.45)' }, // Sunset Orange
+const paths = [
+  { left: '8%', size: 64, drift: 19, delay: 100, duration: 4600 },
+  { left: '22%', size: 48, drift: -24, delay: 540, duration: 4350 },
+  { left: '36%', size: 61, drift: 27, delay: 230, duration: 4900 },
+  { left: '51%', size: 52, drift: -19, delay: 720, duration: 4200 },
+  { left: '65%', size: 72, drift: 21, delay: 80, duration: 4700 },
+  { left: '78%', size: 50, drift: -26, delay: 440, duration: 4600 },
+  { left: '91%', size: 64, drift: 18, delay: 290, duration: 4850 },
 ];
+const colors = {
+  beauty: ['#ca5284', '#a575cf', '#ea916d', '#d779a9'],
+  glow: ['#f56dce', '#9d75ff', '#68ead5', '#dbf078'],
+};
 
-function createBalloons(count = 20): BalloonItem[] {
-  return Array.from({ length: count }, (_, i) => {
-    const pal = PALETTE[i % PALETTE.length];
-    const columnSpan = 92 / count;
-    const baseLeft = 4 + i * columnSpan;
-    const jitter = (Math.random() - 0.5) * columnSpan * 0.8;
-    return {
-      id: Date.now() + i,
-      left: Math.max(3, Math.min(95, Math.round(baseLeft + jitter))),
-      size: Math.round(44 + Math.random() * 26),
-      color: pal.color,
-      shineColor: pal.shine,
-      stringColor: pal.string,
-      duration: Number((6.5 + Math.random() * 3.5).toFixed(1)),
-      delay: Number((i * 0.12 + Math.random() * 0.4).toFixed(2)),
-      swayDuration: Number((2.2 + Math.random() * 1.6).toFixed(1)),
-      swayDist: Math.round(14 + Math.random() * 18),
-      wobbleDir: Math.random() > 0.5 ? 1 : -1,
-    };
-  });
-}
+export function Balloons({ party, replayLabel }: { party: Party; replayLabel: string }) {
+  const prefix = useId();
+  const [launch, setLaunch] = useState(0);
 
-export function Balloons() {
-  const [balloons, setBalloons] = useState<BalloonItem[]>([]);
-  const [particles, setParticles] = useState<Particle[]>([]);
-  const [active, setActive] = useState(true);
-
-  useEffect(() => {
-    // Lanzar globos al abrir la web
-    setBalloons(createBalloons(18));
-
-    // Desactivar automáticamente después de que todos hayan subido
-    const timer = setTimeout(() => {
-      setActive(false);
-    }, 12000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  function launchMore() {
-    setActive(true);
-    setBalloons(createBalloons(18));
-  }
-
-  function popBalloon(event: React.MouseEvent, balloon: BalloonItem) {
-    event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 3;
-
-    // Crear partículas de confeti/pop
-    const newParticles: Particle[] = Array.from({ length: 12 }, (_, i) => ({
-      id: Math.random(),
-      x,
-      y,
-      color: i % 2 === 0 ? balloon.color : balloon.shineColor,
-      angle: (i / 12) * Math.PI * 2,
-      speed: 40 + Math.random() * 45,
-    }));
-
-    setParticles(prev => [...prev, ...newParticles]);
-    setBalloons(prev => prev.filter(b => b.id !== balloon.id));
-
-    setTimeout(() => {
-      setParticles(prev => prev.filter(p => !newParticles.includes(p)));
-    }, 800);
-  }
-
-  return (
-    <>
-      {active && balloons.length > 0 && (
-        <div className="balloons-container" aria-hidden="true">
-          {balloons.map(b => (
-            <div
-              key={b.id}
-              className="balloon-wrapper"
-              style={{
-                left: `${b.left}%`,
-                animationDuration: `${b.duration}s`,
-                animationDelay: `${b.delay}s`,
-                '--sway-dist': `${b.swayDist * b.wobbleDir}px`,
-                '--sway-dur': `${b.swayDuration}s`,
-              } as React.CSSProperties}
-              onClick={e => popBalloon(e, b)}
-              title="¡Toca para explotar!"
-            >
-              <svg
-                width={b.size}
-                height={b.size * 1.55}
-                viewBox="0 0 50 78"
-                className="balloon-svg"
-              >
-                <defs>
-                  <radialGradient id={`shine-${b.id}`} cx="35%" cy="30%" r="65%">
-                    <stop offset="0%" stopColor={b.shineColor} stopOpacity="0.9" />
-                    <stop offset="40%" stopColor={b.color} />
-                    <stop offset="100%" stopColor={b.color} stopOpacity="0.85" />
-                  </radialGradient>
-                  <filter id={`glow-${b.id}`} x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor={b.color} floodOpacity="0.4" />
-                  </filter>
-                </defs>
-
-                {/* Hilo del globo ondeante */}
-                <path
-                  d="M25 48 Q22 56 27 64 T24 76"
-                  fill="none"
-                  stroke={b.stringColor}
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                />
-
-                {/* Nudo */}
-                <polygon
-                  points="23,45 27,45 26,49 24,49"
-                  fill={b.color}
-                />
-
-                {/* Cuerpo del globo */}
-                <ellipse
-                  cx="25"
-                  cy="24"
-                  rx="22"
-                  ry="24"
-                  fill={`url(#shine-${b.id})`}
-                  filter={`url(#glow-${b.id})`}
-                />
-
-                {/* Brillo especular 3D */}
-                <ellipse
-                  cx="18"
-                  cy="14"
-                  rx="6"
-                  ry="9"
-                  transform="rotate(-28 18 14)"
-                  fill="#ffffff"
-                  opacity="0.45"
-                />
-                <circle
-                  cx="14"
-                  cy="25"
-                  r="2"
-                  fill="#ffffff"
-                  opacity="0.3"
-                />
-              </svg>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Partículas de confeti cuando explota un globo */}
-      {particles.length > 0 && (
-        <div className="balloon-particles-container" aria-hidden="true">
-          {particles.map(p => (
-            <span
-              key={p.id}
-              className="balloon-particle"
-              style={{
-                left: `${p.x}px`,
-                top: `${p.y}px`,
-                backgroundColor: p.color,
-                '--dx': `${Math.cos(p.angle) * p.speed}px`,
-                '--dy': `${Math.sin(p.angle) * p.speed}px`,
-              } as React.CSSProperties}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Botón flotante para volver a lanzar globos cuando se desee */}
-      <button
-        type="button"
-        className="balloon-relaunch-btn"
-        onClick={launchMore}
-        aria-label="Lanzar globos de fiesta"
-        title="¡Lanzar más globos!"
-      >
-        <span aria-hidden="true">🎈</span>
-      </button>
-    </>
-  );
+  return <>
+    <div key={launch} className="balloons-container" aria-hidden="true">
+      {paths.map(({ left, size, drift, delay, duration }, index) => {
+        const color = colors[party][index % colors[party].length];
+        const gradient = `${prefix}-balloon-${index}`;
+        return <div className="balloon-wrapper" key={left} style={{
+          left,
+          color,
+          '--size': `${size}px`,
+          '--drift': `${drift}px`,
+          '--delay': `${delay}ms`,
+          '--flight': `${duration}ms`,
+        } as CSSProperties}>
+          <svg viewBox="0 0 50 88" className="balloon-svg" focusable="false">
+            <defs>
+              <radialGradient id={gradient} cx="31%" cy="25%" r="80%">
+                <stop offset="0" stopColor="#fff" stopOpacity=".95" />
+                <stop offset=".26" stopColor={color} />
+                <stop offset="1" stopColor={color} stopOpacity=".76" />
+              </radialGradient>
+            </defs>
+            <path d="M25 49 Q18 57 25 65 T24 86" fill="none" stroke="currentColor" strokeOpacity=".72" strokeWidth="1.25" />
+            <path d="M25 43 L21 51 Q25 53 29 51 Z" fill="currentColor" />
+            <path d="M25 3 C12 3 4 11 4 23 C4 34 14 46 25 48 C36 46 46 34 46 23 C46 11 38 3 25 3Z" fill={`url(#${gradient})`} />
+            <path d="M12 21 Q13 12 22 10" fill="none" stroke="white" strokeOpacity=".68" strokeWidth="2.25" strokeLinecap="round" />
+          </svg>
+        </div>;
+      })}
+    </div>
+    <button type="button" className="balloon-relaunch-btn" onClick={() => setLaunch(value => value + 1)}>
+      <span aria-hidden="true">✧</span> {replayLabel}
+    </button>
+  </>;
 }

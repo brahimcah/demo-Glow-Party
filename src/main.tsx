@@ -30,7 +30,6 @@ function App() {
   }
 
   return <div className="site" data-party={party}>
-    <Balloons />
     <div className="scroll-progress" aria-hidden="true" />
     <a className="skip" href="#contingut">{t.skip}</a>
     <header className="header" id="top">
@@ -62,6 +61,7 @@ function App() {
             <div className="hero-art">
               {parties.map(value => <div key={value} className={party === value ? 'visible' : ''}><Artwork party={value} /></div>)}
             </div>
+            <Balloons party={party} replayLabel={t.replayBalloons} />
           </div>
         </div>
       </section>
