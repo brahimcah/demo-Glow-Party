@@ -7,7 +7,9 @@ import '@fontsource-variable/plus-jakarta-sans';
 import { Gallery } from './Gallery';
 import { Inquiry } from './Inquiry';
 import { config } from './config';
-import type { Choice, Party } from './config';
+import { Packages, Testimonials } from './Commercial';
+import { InstagramIcon } from './Icons';
+import type { Choice, PackageId, Party } from './config';
 import { copy } from './copy';
 import type { Language } from './copy';
 import './style.css';
@@ -19,6 +21,7 @@ function App() {
   const [party, setParty] = useState<Party>('beauty');
   const [celebration, setCelebration] = useState(0);
   const [choice, setChoice] = useState<Choice>('beauty');
+  const [selectedPackage, setSelectedPackage] = useState<PackageId>();
   const [menu, setMenu] = useState(false);
   const [detail, setDetail] = useState<Party>('beauty');
   const details = useRef<HTMLDialogElement>(null);
@@ -68,13 +71,15 @@ function App() {
         setDetail(value);
         details.current?.showModal();
       }} />
+      <Packages t={t} lang={lang} selected={selectedPackage} onSelect={setSelectedPackage} />
       <Process t={t} />
       <Gallery t={t} lang={lang} />
-      <Inquiry t={t} lang={lang} choice={choice} choose={select} />
+      <Inquiry t={t} lang={lang} choice={choice} choose={select} selectedPackage={selectedPackage} />
+      <Testimonials t={t} lang={lang} />
       <FAQ t={t} />
       <section className="closing section" id="contacte"><div className="wrap">
         <p className="eyebrow">✦ {config.serviceArea} ✦</p><h2>{t.closing}</h2>
-        <div className="actions"><a className="button primary" href="#consulta">{t.dateCta} →</a><a className="button secondary" href={config.instagramUrl} target="_blank" rel="noreferrer">@beautykidsparty28 ↗</a></div>
+        <div className="actions"><a className="button primary" href="#consulta">{t.dateCta} →</a><a className="button secondary instagram-logo-button" href={config.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram"><InstagramIcon size={25} /><span className="sr-only">Instagram</span></a></div>
       </div></section>
     </main>
     <footer className="wrap footer"><a className="brand" href="#top"><span aria-hidden="true">✦</span>{config.brandName}</a><span>{config.serviceArea}</span></footer>

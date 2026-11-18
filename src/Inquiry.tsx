@@ -2,14 +2,21 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { config } from './config';
-import type { Choice } from './config';
+import type { Choice, PackageId } from './config';
 import type { Language, Translation } from './copy';
+import { InstagramIcon } from './Icons';
 
 const fields = { date: '', guests: '', time: '', name: '', contact: '', town: '', note: '' };
 type Field = keyof typeof fields;
 type ErrorField = keyof Translation['errors'];
 
-export function Inquiry({ t, lang, choice, choose }: { t: Translation; lang: Language; choice: Choice; choose: (value: Choice) => void }) {
+export function Inquiry({ t, lang, choice, choose, selectedPackage }: {
+  t: Translation;
+  lang: Language;
+  choice: Choice;
+  choose: (value: Choice) => void;
+  selectedPackage?: PackageId;
+}) {
   const reduced = useReducedMotion();
   const [data, setData] = useState(fields);
   const [step, setStep] = useState(0);
@@ -19,10 +26,11 @@ export function Inquiry({ t, lang, choice, choose }: { t: Translation; lang: Lan
   const heading = useRef<HTMLHeadingElement>(null);
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date());
   const experience = choice === 'undecided' ? t.undecided : config.experiences[choice].name;
+  const packageName = selectedPackage ? config.packages.find(item => item.id === selectedPackage)?.name[lang] : '';
   const formattedDate = data.date ? new Intl.DateTimeFormat(lang, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(data.date)) : '';
   const timeOptions = { morning: t.morning, afternoon: t.afternoon, evening: t.evening };
   const summary = [
-    experience, formattedDate, data.guests && `${t.guests}: ${data.guests}`,
+    experience, packageName && `${t.pack}: ${packageName}`, formattedDate, data.guests && `${t.guests}: ${data.guests}`,
     timeOptions[data.time as keyof typeof timeOptions], data.town, data.name, data.contact, data.note,
   ].filter(Boolean).join('\n');
 
@@ -93,6 +101,7 @@ export function Inquiry({ t, lang, choice, choose }: { t: Translation; lang: Lan
           <span aria-hidden="true">✦</span>
           <h3>{t.invitation}</h3>
           <p>{experience}</p>
+          {packageName && <p>{t.pack} · {packageName}</p>}
           <p>{formattedDate || t.empty}</p>
           {data.guests && <p>{t.guests} · {data.guests}</p>}
           <span aria-hidden="true">✧</span>
@@ -105,7 +114,7 @@ export function Inquiry({ t, lang, choice, choose }: { t: Translation; lang: Lan
           <pre className="summary">{summary}</pre>
           <div className="actions">
             <button className="button primary" onClick={copySummary}>{t.copy}</button>
-            <a className="button secondary" href={config.instagramUrl} target="_blank" rel="noreferrer">{t.instagram} ↗</a>
+            <a className="button secondary instagram-button" href={config.instagramUrl} target="_blank" rel="noreferrer"><InstagramIcon /> {t.instagram}</a>
             {config.whatsappNumber && <a className="button secondary" href={`https://wa.me/${config.whatsappNumber}?text=${encodeURIComponent(summary)}`} target="_blank" rel="noreferrer">{t.whatsapp} ↗</a>}
           </div>
           <p role="status">{status ? t[status as 'copied' | 'copyError'] : ''}</p>
