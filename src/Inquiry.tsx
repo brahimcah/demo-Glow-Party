@@ -1,3 +1,4 @@
+import { motion, useReducedMotion } from 'framer-motion';
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { config } from './config';
@@ -9,6 +10,7 @@ type Field = keyof typeof fields;
 type ErrorField = keyof Translation['errors'];
 
 export function Inquiry({ t, lang, choice, choose }: { t: Translation; lang: Language; choice: Choice; choose: (value: Choice) => void }) {
+  const reduced = useReducedMotion();
   const [data, setData] = useState(fields);
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<ErrorField[]>([]);
@@ -110,8 +112,8 @@ export function Inquiry({ t, lang, choice, choose }: { t: Translation; lang: Lan
           <button className="text-button" onClick={() => move(2)}>{t.edit}</button>
           <div className="celebrate" aria-hidden="true">✦　✧　✦　✧</div>
         </> : <form noValidate onSubmit={submit}>
-          <div className="progress" aria-label={`${t.progress} ${step + 1} ${t.of} 3`}>
-            {[0, 1, 2].map(index => <span key={index} className={index <= step ? 'filled' : ''} />)}
+          <div className="progress" role="progressbar" aria-label={t.progress} aria-valuemin={0} aria-valuemax={3} aria-valuenow={step + 1}>
+            <motion.span className="filled" initial={false} animate={{ scaleX: (step + 1) / 3 }} transition={{ duration: reduced ? 0 : 0.38 }} />
           </div>
           <p className="eyebrow">{t.progress} {step + 1} {t.of} 3</p>
           <h3 tabIndex={-1} ref={heading}>{t.formSteps[step]}</h3>

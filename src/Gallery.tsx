@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Artwork } from './Artwork';
 import { config } from './config';
 import type { Media, Party } from './config';
@@ -10,6 +11,7 @@ const illustrations = [
 ] as const;
 
 export function Gallery({ t, lang }: { t: Translation; lang: Language }) {
+  const reduced = useReducedMotion();
   const [filter, setFilter] = useState<Party | 'all'>('all');
   const [active, setActive] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -23,20 +25,21 @@ export function Gallery({ t, lang }: { t: Translation; lang: Language }) {
 
   return <section className="section wrap" id="galeria">
     <div className="section-head"><div><h2>{t.gallery}</h2>{!config.authorizedMedia.length && <p>{t.galleryNote}</p>}</div>
-      <div className="filter" role="group" aria-label={t.gallery}>
+      <div className="filter gallery-filter" role="group" aria-label={t.gallery}>
         {(['all', 'beauty', 'glow'] as const).map(value => <button key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setActive(0); }}>
-          {value === 'all' ? t.all : config.experiences[value].name}
+          {filter === value && <motion.span className="filter-pill" layoutId={reduced ? undefined : 'gallery-filter'} transition={{ type: 'spring', stiffness: 380, damping: 34 }} aria-hidden="true" />}
+          <span>{value === 'all' ? t.all : config.experiences[value].name}</span>
         </button>)}
       </div>
     </div>
-    <div className="gallery-grid">{items.map((item, index) => <button key={item.label} className="gallery-tile" onClick={event => {
+    <div className="gallery-grid" data-filter={filter}>{items.map((item, index) => <motion.button initial={reduced ? false : { opacity: 0.55 }} animate={{ opacity: 1 }} key={item.label} className="gallery-tile" onClick={event => {
       trigger.current = event.currentTarget;
       setActive(index);
       dialog.current?.showModal();
     }}>
-      {item.src ? <img src={item.src} loading="lazy" alt="" /> : <Artwork party={item.party} variant={item.variant} />}
+      <div className="gallery-image">{item.src ? <img src={item.src} loading="lazy" alt="" /> : <Artwork party={item.party} variant={item.variant} />}</div>
       <span>{item.label} <span aria-hidden="true">↗</span></span>
-    </button>)}</div>
+    </motion.button>)}</div>
     <dialog ref={dialog} aria-labelledby="gallery-title" onClose={() => trigger.current?.focus()} onKeyDown={event => {
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         event.preventDefault();
