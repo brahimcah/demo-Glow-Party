@@ -49,7 +49,7 @@ export function Hero({ t, party, select }: { t: Translation; party: Party; selec
             <span aria-hidden="true">{value === 'beauty' ? '✿' : '✦'}</span> {config.experiences[value].name}
           </button>)}
         </div>
-        <div className="actions"><a className="button primary" href="#festes">{t.explore} <span aria-hidden="true">↘</span></a><a className="button secondary" href="#consulta">{t.check}</a></div>
+        <div className="actions"><a className="button primary" href="#festes">{t.explore} <span aria-hidden="true">↘︎</span></a><a className="button secondary" href="#consulta">{t.check}</a></div>
       </motion.div>
       <div className="hero-stage">
         <motion.div className="hero-art" style={reduced ? undefined : { scale: artScale, y: artY }}>

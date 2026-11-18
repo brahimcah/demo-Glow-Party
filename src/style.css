@@ -166,7 +166,7 @@ dialog, .gallery-tile, .choices label {
 .hero::after { width: 38%; height: 44%; bottom: 0; left: -10%; background: var(--halo-second); opacity: .22; }
 .hero-grid { min-height: 100svh; display: grid; align-content: center; align-items: center; gap: clamp(1.5rem, 4vw, 4rem); padding-block: 7rem 2rem; }
 .hero-content:focus-within { opacity: 1 !important; }
-.hero h1 { font-size: clamp(3rem, 8vw, 7.9rem); line-height: 1.02; }
+.hero h1 { font-size: clamp(3rem, 6vw, 6.05rem); line-height: 1.02; }
 .hero-line { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
 .hero-line > span { display: block; }
 .hero h1 em { font-style: normal; color: var(--accent); }
