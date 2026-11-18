@@ -130,3 +130,5 @@ dialog .actions{margin-top:.75rem}
 }
 .cake-top { background: linear-gradient(150deg, #ffffff88, transparent 64%), var(--icing); }
 .gift { box-shadow: 0 1.2cqw 2.5cqw #1d0d2f43, inset 0 0 0 .45cqw #ffffff36; }
+
+.art-constellation { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--art-light); opacity: .64; pointer-events: none; }

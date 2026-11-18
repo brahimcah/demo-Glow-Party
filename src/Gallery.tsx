@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { Artwork } from './Artwork';
 import { config } from './config';
 import type { Media, Party } from './config';
@@ -12,6 +12,10 @@ const illustrations = [
 
 export function Gallery({ t, lang }: { t: Translation; lang: Language }) {
   const reduced = useReducedMotion();
+  const grid = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: grid, offset: ['start end', 'end start'] });
+  const lift = useTransform(scrollYProgress, [0, 1], [11, -11]);
+  const drift = useTransform(scrollYProgress, [0, 1], [-11, 11]);
   const [filter, setFilter] = useState<Party | 'all'>('all');
   const [active, setActive] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -32,7 +36,7 @@ export function Gallery({ t, lang }: { t: Translation; lang: Language }) {
         </button>)}
       </div>
     </div>
-    <div className="gallery-grid" data-filter={filter}>{items.map((item, index) => <motion.button initial={reduced ? false : { opacity: 0.55 }} animate={{ opacity: 1 }} key={item.label} className="gallery-tile" onClick={event => {
+    <div ref={grid} className="gallery-grid" data-filter={filter}>{items.map((item, index) => <motion.button initial={reduced ? false : { opacity: 0.55 }} animate={{ opacity: 1 }} key={item.src || `${item.party}-${item.variant}`} style={reduced ? undefined : { y: index % 2 ? drift : lift }} className="gallery-tile" onClick={event => {
       trigger.current = event.currentTarget;
       setActive(index);
       dialog.current?.showModal();
@@ -41,14 +45,17 @@ export function Gallery({ t, lang }: { t: Translation; lang: Language }) {
       <span>{item.label} <span aria-hidden="true">↗</span></span>
     </motion.button>)}</div>
     <dialog ref={dialog} aria-labelledby="gallery-title" onClose={() => trigger.current?.focus()} onKeyDown={event => {
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      if (items.length > 1 && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
         event.preventDefault();
         turn(event.key === 'ArrowLeft' ? -1 : 1);
       }
     }}>
       <button className="text-button dialog-close" autoFocus onClick={() => dialog.current?.close()}>{t.close} ×</button>
       {selected && <>
-        {selected.src ? <img src={selected.src} alt="" /> : <Artwork party={selected.party} variant={selected.variant} />}
+        <motion.div key={active} initial={reduced ? false : { opacity: 0.55, scale: 0.985 }}
+          animate={{ opacity: 1, scale: 1 }} transition={{ duration: reduced ? 0 : 0.24 }}>
+          {selected.src ? <img src={selected.src} alt="" /> : <Artwork party={selected.party} variant={selected.variant} />}
+        </motion.div>
         <h3 id="gallery-title" aria-live="polite">{selected.label}</h3>
         {items.length > 1 && <div className="actions"><button className="button secondary" onClick={() => turn(-1)}>← {t.previous}</button><button className="button secondary" onClick={() => turn(1)}>{t.next} →</button></div>}
       </>}

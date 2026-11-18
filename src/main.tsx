@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Artwork } from './Artwork';
 import { MotionConfig, motion, useReducedMotion, useScroll } from 'framer-motion';
-import { Experiences, FAQ, Hero, Process } from './Scenes';
+import { Experiences, FAQ, Hero, Process, parties } from './Scenes';
 import '@fontsource-variable/plus-jakarta-sans';
 import { Gallery } from './Gallery';
 import { Inquiry } from './Inquiry';
@@ -17,6 +17,7 @@ const sections = ['festes', 'com-funciona', 'galeria', 'preguntes', 'contacte'];
 function App() {
   const [lang, setLang] = useState<Language>('ca');
   const [party, setParty] = useState<Party>('beauty');
+  const [celebration, setCelebration] = useState(0);
   const [choice, setChoice] = useState<Choice>('beauty');
   const [menu, setMenu] = useState(false);
   const [detail, setDetail] = useState<Party>('beauty');
@@ -32,6 +33,11 @@ function App() {
     if (value !== 'undecided') setParty(value);
   }
 
+  function switchAtmosphere(value: Party) {
+    select(value);
+    setCelebration(count => count + 1);
+  }
+
   return <div className="site" data-party={party}>
     <div id="top" />
     {!reduced && <motion.div className="scroll-progress" aria-hidden="true" style={{ scaleX: scrollYProgress }} />}
@@ -41,6 +47,12 @@ function App() {
         <a className="brand" href="#top"><span aria-hidden="true">✦</span>{config.brandName}</a>
         <button className="menu-toggle button secondary" aria-expanded={menu} aria-controls="nav" onClick={() => setMenu(!menu)}>{t.menu} {menu ? '×' : '☰'}</button>
         <nav id="nav" className={menu ? 'open' : ''} onKeyDown={event => { if (event.key === 'Escape') { setMenu(false); document.querySelector<HTMLButtonElement>('.menu-toggle')?.focus(); } }}>
+          <div className="header-atmosphere theme-picker" role="group" aria-label={t.mood}>
+            {parties.map(value => <button key={value} aria-pressed={party === value}
+              aria-label={config.experiences[value].name} onClick={() => switchAtmosphere(value)}>
+              <span aria-hidden="true">{value === 'beauty' ? '✿' : '✦'}</span>
+            </button>)}
+          </div>
           {sections.map((id, index) => <a key={id} href={`#${id}`} onClick={() => setMenu(false)}>{t.nav[index]}</a>)}
         </nav>
         <div className="filter languages" role="group" aria-label={t.language}>
@@ -50,8 +62,8 @@ function App() {
       </div>
     </header>
     <main id="contingut">
-      <Hero t={t} party={party} select={select} />
-      <Experiences t={t} select={select} openDetails={(value, target) => {
+      <Hero t={t} party={party} celebration={celebration} select={switchAtmosphere} />
+      <Experiences t={t} select={select} onSceneChange={setParty} openDetails={(value, target) => {
         detailTrigger.current = target;
         setDetail(value);
         details.current?.showModal();

@@ -14,7 +14,7 @@ const spring = { stiffness: 160, damping: 32, mass: 0.55 };
 const stickyViewport = '(min-height: 640px)';
 type SelectParty = (party: Choice) => void;
 
-export function Hero({ t, party, select }: { t: Translation; party: Party; select: SelectParty }) {
+export function Hero({ t, party, celebration, select }: { t: Translation; party: Party; celebration: number; select: (party: Party) => void }) {
   const hero = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: hero, offset: ['start start', 'end start'] });
@@ -34,7 +34,7 @@ export function Hero({ t, party, select }: { t: Translation; party: Party; selec
               transition={{ duration: reduced ? 0 : 0.28 }}
               exit={reduced ? undefined : { opacity: 0, transition: { duration: 0.12 } }}>
               {t.hero[party].map((line, index) => <span className="hero-line" key={index}>
-                <motion.span initial={reduced ? false : { y: '95%', filter: 'blur(8px)' }}
+                <motion.span initial={reduced ? false : { y: '95%', filter: 'blur(10px)' }}
                   animate={{ y: 0, filter: 'blur(0px)' }}
                   transition={{ duration: reduced ? 0 : 0.75, delay: reduced ? 0 : index * 0.1, ease }}>
                   {index === 0 ? line : <em>{line}</em>}
@@ -55,22 +55,24 @@ export function Hero({ t, party, select }: { t: Translation; party: Party; selec
         <motion.div className="hero-art" style={reduced ? undefined : { scale: artScale, y: artY }}>
           {parties.map(value => <div key={value} className={party === value ? 'visible' : ''}><Artwork party={value} /></div>)}
         </motion.div>
-        <Balloons party={party} replayLabel={t.replayBalloons} />
+        <Balloons key={celebration} party={party} replayLabel={t.replayBalloons} />
       </div>
     </div>
   </section>;
 }
 
-export function Experiences({ t, select, openDetails }: {
+export function Experiences({ t, select, onSceneChange, openDetails }: {
   t: Translation;
   select: SelectParty;
+  onSceneChange: (party: Party) => void;
   openDetails: (party: Party, target: HTMLButtonElement) => void;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
   const [roomForSticky, setRoomForSticky] = useState(() => window.matchMedia?.(stickyViewport).matches ?? false);
   const [active, setActive] = useState<Party>('beauty');
-  const { scrollYProgress } = useScroll({ target: track, offset: ['start start', 'end end'] });
+  const lastScene = useRef<Party>('beauty');
+  const { scrollYProgress } = useScroll({ target: track, offset: ['start 15%', 'end end'] });
   const progress = useSpring(scrollYProgress, spring);
   const beautyOpacity = useTransform(progress, [0, 0.40, 0.57], [1, 1, 0]);
   const glowOpacity = useTransform(progress, [0.44, 0.60, 1], [0, 1, 1]);
@@ -92,8 +94,13 @@ export function Experiences({ t, select, openDetails }: {
   }, []);
 
   useMotionValueEvent(progress, 'change', value => {
-    const scene = value < 0.51 ? 'beauty' : 'glow';
-    if (scene !== active) setActive(scene);
+    const scene = lastScene.current;
+    const next = scene === 'beauty' && value >= 0.53 ? 'glow'
+      : scene === 'glow' && value <= 0.47 ? 'beauty' : scene;
+    if (next === scene) return;
+    lastScene.current = next;
+    setActive(next);
+    onSceneChange(next);
   });
 
   return <section id="festes" className="experiences">
@@ -127,15 +134,19 @@ export function Experiences({ t, select, openDetails }: {
       </div>
     </div>
     <div className="wrap compare">
-      <table>
-        <caption><h3>{t.compare}</h3></caption>
-        <tbody>{parties.map(value => <tr key={value}>
-          <th scope="row">{config.experiences[value].name}</th>
-          <td>{t.descriptions[value]}</td>
-          <td><a className="button secondary" href="#consulta" onClick={() => select(value)}
-            aria-label={`${t.want} · ${config.experiences[value].name}`}>{t.want} →</a></td>
-        </tr>)}</tbody>
-      </table>
+      <h3>{t.compare}</h3>
+      <div className="compare-grid">
+        {parties.map(value => <motion.article key={value} className={`compare-card card-${value}`}
+          initial={reduced ? false : { scale: 0.94, y: 22 }}
+          whileInView={{ scale: 1, y: 0 }} viewport={{ once: true, amount: 0.18 }}
+          transition={{ duration: reduced ? 0 : 0.62, ease }}>
+          <span className="compare-symbol" aria-hidden="true">{value === 'beauty' ? '✿' : '✦'}</span>
+          <h4>{config.experiences[value].name}</h4>
+          <p>{t.descriptions[value]}</p>
+          <a className="button secondary" href="#consulta" onClick={() => select(value)}
+            aria-label={`${t.want} · ${config.experiences[value].name}`}>{t.want} →</a>
+        </motion.article>)}
+      </div>
       <a href="#consulta" className="text-button" onClick={() => select('undecided')}>{t.help} →</a>
     </div>
   </section>;
@@ -144,11 +155,11 @@ export function Experiences({ t, select, openDetails }: {
 function ProcessStep({ text, index }: { text: string; index: number }) {
   const card = useRef<HTMLLIElement>(null);
   const reduced = useReducedMotion();
-  const { scrollYProgress } = useScroll({ target: card, offset: ['start 92%', 'center center'] });
+  const { scrollYProgress } = useScroll({ target: card, offset: ['start 90%', 'center center', 'end 15%'] });
   const progress = useSpring(scrollYProgress, spring);
-  const opacity = useTransform(progress, [0, 1], [0.22, 1]);
-  const scale = useTransform(progress, [0, 1], [0.95, 1]);
-  const glow = useTransform(progress, [0.35, 1], [0, 1]);
+  const opacity = useTransform(progress, [0, 0.5, 1], [0.68, 1, 0.72]);
+  const scale = useTransform(progress, [0, 0.5, 1], [0.95, 1, 0.97]);
+  const glow = useTransform(progress, [0.15, 0.5, 0.85], [0, 1, 0]);
 
   return <motion.li ref={card} style={reduced ? undefined : { opacity, scale }}>
     <motion.i className="step-glow" aria-hidden="true" style={reduced ? undefined : { opacity: glow }} />
