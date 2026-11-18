@@ -1,0 +1,31 @@
+# Beauty Party & Glow Party — Apache Configuration for HestiaCP
+DirectoryIndex index.php index.html
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Si se solicitan archivos en /assets/ y están dentro de dist/assets/
+    RewriteCond %{DOCUMENT_ROOT}/dist/assets/$1 -f
+    RewriteRule ^assets/(.*)$ dist/assets/$1 [L]
+
+    # Servir archivos físicos existentes
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Enrutamiento hacia index.php
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+<IfModule mod_mime.c>
+    AddType application/javascript .js .mjs
+    AddType text/css .css
+    AddType image/svg+xml .svg
+    AddType font/woff2 .woff2
+    AddType font/woff .woff
+</IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json
+</IfModule>
